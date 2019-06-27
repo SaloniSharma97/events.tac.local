@@ -1,0 +1,57 @@
+﻿using events.tac.local.Areas.Importer.Models;
+using Newtonsoft.Json;
+using Sitecore.Data;
+using Sitecore.Data.Items;
+using Sitecore.SecurityModel;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+
+namespace events.tac.local.Areas.Importer.Controllers
+{
+    public class EventsController : Controller
+    {
+        // GET: Importer/Events
+        public ActionResult Index()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public ActionResult Index(HttpPostedFileBase file, string parentPath)
+        {
+            IEnumerable<Event> events = null;
+            string message = null;
+            using (var reader = new System.IO.StreamReader(file.InputStream))
+            {
+                var contents = reader.ReadToEnd();
+                try
+                {
+                    events = JsonConvert.DeserializeObject<IEnumerable<Event>>(contents);
+                }
+                catch (Exception ex)
+                {
+                }
+            }
+
+            var database = Sitecore.Configuration.Factory.GetDatabase("master");
+            var parentItem = database.GetItem(parentPath);
+            var templateID = new TemplateID(new ID("{128E13FA-08A1-4D91-ADDF-04033BF359FB}"));
+            using (new SecurityDisabler())
+            {
+                foreach (var ev in events)
+                {
+                    var name = ItemUtil.ProposeValidItemName(ev.ContentHeading);
+                    Item item = parentItem.Add(name, templateID);
+                    item.Editing.BeginEdit();
+                    item["ContentHeading"] = ev.ContentHeading;
+                    item.Editing.EndEdit();
+
+                }
+            }
+            return View();
+        }
+    }
+}
